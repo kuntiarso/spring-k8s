@@ -1,0 +1,5 @@
+# Windows batch scripts should always be CRLF on checkout
+*.cmd text eol=crlf
+
+# (Optional) Ensure shell scripts stay LF
+*.sh text eol=lf
