@@ -1,0 +1,12 @@
+ _______                                  ______                   _
+(_______)                                / _____)                 (_)
+ _       ___  ____  ____   ___  ____    ( (____  _____  ____ _   _ _  ____ _____
+| |     / _ \|    \|    \ / _ \|  _ \    \____ \| ___ |/ ___) | | | |/ ___) ___ |
+| |____| |_| | | | | | | | |_| | | | |   _____) ) ____| |    \ V /| ( (___| ____|
+ \______)___/|_|_|_|_|_|_|\___/|_| |_|  (______/|_____)_|     \_/ |_|\____)_____)
+
+Version number of your application declared in MANIFEST.MF: ${application.version}
+Version number of your application declared in MANIFEST.MF formatted: ${application.formatted-version}
+Spring Boot version: ${spring-boot.version}
+Spring Boot version formatted: ${spring-boot.formatted-version}
+The title of your application, as declared in MANIFEST.MF: ${application.title}
