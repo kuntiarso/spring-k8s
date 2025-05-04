@@ -1,0 +1,11 @@
+apiVersion: v2
+name: commonservice
+description: A helm chart for commonservice for k8s local project
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: mysql
+    version: 10.3.0 # bitnami mysql chart version
+    repository: https://charts.bitnami.com/bitnami

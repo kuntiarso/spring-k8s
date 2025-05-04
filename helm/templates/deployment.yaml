@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "app.fullname" . }}
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "app.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path | default "/actuator/health/liveness" }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelay | default 30 }}
+            periodSeconds: {{ .Values.probes.liveness.period | default 10 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path | default "/actuator/health/readiness" }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelay | default 5 }}
+            periodSeconds: {{ .Values.probes.readiness.period | default 5 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: SPRING_CONFIG_LOCATION
+              value: "file:/app/config/"
+            - name: DB_NAME
+              value: {{ .Values.mysql.auth.database }}
+            - name: DB_USER
+              value: {{ .Values.mysql.auth.username }}
+            - name: DB_PASS
+              value: {{ .Values.mysql.auth.password }}
+
+          volumeMounts:
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+      
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Release.Name }}-config
+            items:
+              - key: application.properties
+                path: application.properties
