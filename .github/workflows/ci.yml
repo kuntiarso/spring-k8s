@@ -49,7 +49,7 @@ jobs:
           docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
           docker push $IMAGE_NAME:latest
 
-      - name: Cleanup old GHCR tags (keep latest + current)
+      - name: Cleanup old GHCR tags
         env:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           REPO: commonservice
@@ -57,17 +57,31 @@ jobs:
         run: |
           echo "Fetching tags from GHCR..."
           API_URL="https://api.github.com/users/${OWNER}/packages/container/${REPO}/versions"
-
-          # Get package versions (excluding latest and current commit)
-          PACKAGE_VERSIONS=$(curl -s -H "Authorization: Bearer $GHCR_PAT" -H "Accept: application/vnd.github.v3+json" "$API_URL" | \
-            jq -r --arg CURRENT_TAG "${GITHUB_SHA::8}" '.[] | 
-            select(.metadata.container.tags != null) | 
-            select((.metadata.container.tags | index("latest") | not) and 
-            ((.metadata.container.tags | index($CURRENT_TAG) | not) | 
-            .id')
-
+          
+          # Get package versions to delete (excluding latest and current commit)
+          PACKAGE_VERSIONS=$(curl -s \
+            -H "Authorization: Bearer ${GHCR_PAT}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "${API_URL}" | \
+            jq -r --arg CURRENT_TAG "${GITHUB_SHA::8}" '
+              .[] |
+              select(.metadata.container.tags != null) |
+              select(
+                (.metadata.container.tags | index("latest") | not) and
+                (.metadata.container.tags | index($CURRENT_TAG) | not
+              ) |
+              .id
+            ')
+          
           # Delete old versions
-          for id in $PACKAGE_VERSIONS; do
-            echo "Deleting package version ID: $id"
-            curl -X DELETE -H "Authorization: Bearer $GHCR_PAT" "$API_URL/$id"
-          done
+          if [ -n "${PACKAGE_VERSIONS}" ]; then
+            echo "Deleting old package versions:"
+            for id in ${PACKAGE_VERSIONS}; do
+              echo "- Deleting version ID: ${id}"
+              curl -s -X DELETE \
+                -H "Authorization: Bearer ${GHCR_PAT}" \
+                "${API_URL}/${id}" || true
+            done
+          else
+            echo "No old versions to delete"
+          fi
