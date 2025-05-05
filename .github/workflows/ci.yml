@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - '.github/**'
       - 'commonservice/**'
 
 jobs:
@@ -48,3 +49,23 @@ jobs:
           # also tag as latest
           docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
           docker push $IMAGE_NAME:latest
+      
+      - name: Cleanup old images (keep latest + current)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_PAT: ${{ secrets.DOCKERHUB_PAT }}
+        run: |
+          IMAGE_NAME=commonservice
+          CURRENT_TAG=${GITHUB_SHA::8}
+          echo "Fetching tags for cleanup..."
+
+          TAGS=$(curl -s -u "$DOCKERHUB_USERNAME:$DOCKERHUB_PAT" \
+            "https://hub.docker.com/repository/docker/$DOCKERHUB_USERNAME/$IMAGE_NAME/tags?page_size=100" \
+            | jq -r '.results[].name' | grep -v '^latest$' | grep -v "^$CURRENT_TAG$")
+
+          for tag in $TAGS; do
+            echo "Deleting tag: $tag"
+            curl -s -X DELETE -u "$DOCKERHUB_USERNAME:$DOCKERHUB_PAT" \
+              "https://hub.docker.com/repository/docker/$DOCKERHUB_USERNAME/$IMAGE_NAME/tags/$tag/"
+          done
+          
