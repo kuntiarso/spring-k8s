@@ -54,14 +54,20 @@ jobs:
           GHCR_PAT: ${{ secrets.GHCR_PAT }}
           REPO: commonservice
           OWNER: ${{ github.repository_owner }}
-          CURRENT_TAG: ${{ github.sha }}
         run: |
           echo "Fetching tags from GHCR..."
-          API_URL="https://api.github.com/orgs/${OWNER}/packages/container/${REPO}/versions"
+          API_URL="https://api.github.com/users/${OWNER}/packages/container/${REPO}/versions"
 
-          TAGS=$(curl -s -H "Authorization: Bearer $GHCR_PAT" "$API_URL" | jq -r '.[] | {id: .id, tags: .metadata.container.tags} | select(.tags != null) | select((.tags | index("latest") | not) and (.tags | index("${CURRENT_TAG::8}") | not)) | .id')
+          # Get package versions (excluding latest and current commit)
+          PACKAGE_VERSIONS=$(curl -s -H "Authorization: Bearer $GHCR_PAT" -H "Accept: application/vnd.github.v3+json" "$API_URL" | \
+            jq -r --arg CURRENT_TAG "${GITHUB_SHA::8}" '.[] | 
+            select(.metadata.container.tags != null) | 
+            select((.metadata.container.tags | index("latest") | not) and 
+            ((.metadata.container.tags | index($CURRENT_TAG) | not) | 
+            .id')
 
-          for id in $TAGS; do
+          # Delete old versions
+          for id in $PACKAGE_VERSIONS; do
             echo "Deleting package version ID: $id"
-            curl -X DELETE -H "Authorization: Bearer $GHCR_PAT" "https://api.github.com/orgs/${OWNER}/packages/container/${REPO}/versions/$id"
+            curl -X DELETE -H "Authorization: Bearer $GHCR_PAT" "$API_URL/$id"
           done
