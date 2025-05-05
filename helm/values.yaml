@@ -1,7 +1,7 @@
 replicaCount: 2
 
 image:
-  repository: kuntiarso/commonservice
+  repository: ghcr.io/kuntiarso/commonservice
   pullPolicy: IfNotPresent
   tag: "latest"
 
