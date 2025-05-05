@@ -1,4 +1,4 @@
-name: Build and Push Common Service as Docker Image
+name: Build and Push Common Service to GHCR
 
 on:
   push:
@@ -11,6 +11,10 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -20,52 +24,44 @@ jobs:
         with:
           java-version: '21'
           distribution: temurin
-      
+
       - name: Cache maven packages
         uses: actions/cache@v3
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-${{ hashFiles('commonservice/pom.xml') }}
           restore-keys: ${{ runner.os }}-maven-
-      
+
       - name: Build service jar
         working-directory: commonservice
         run: ./mvnw clean package -DskipTests
-      
-      - name: Login to docker-hub
+
+      - name: Login to GitHub Container Registry
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build and push image to GHCR
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-        run: echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-      
-      - name: Build and push docker image
-        env:
-          IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/commonservice
+          IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/commonservice
         run: |
           TAG=${GITHUB_SHA::8}
-          # build using the multi-stage Dockerfile in commonservice/
           docker build -t $IMAGE_NAME:$TAG commonservice/
           docker push $IMAGE_NAME:$TAG
-          # also tag as latest
           docker tag $IMAGE_NAME:$TAG $IMAGE_NAME:latest
           docker push $IMAGE_NAME:latest
-      
-      - name: Cleanup old images (keep latest + current)
+
+      - name: Cleanup old GHCR tags (keep latest + current)
         env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_PAT: ${{ secrets.DOCKERHUB_PAT }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          REPO: commonservice
+          OWNER: ${{ github.repository_owner }}
+          CURRENT_TAG: ${{ github.sha }}
         run: |
-          IMAGE_NAME=commonservice
-          CURRENT_TAG=${GITHUB_SHA::8}
-          echo "Fetching tags for cleanup..."
+          echo "Fetching tags from GHCR..."
+          API_URL="https://api.github.com/orgs/${OWNER}/packages/container/${REPO}/versions"
 
-          TAGS=$(curl -s -u "$DOCKERHUB_USERNAME:$DOCKERHUB_PAT" \
-            "https://hub.docker.com/v2/repositories/$DOCKERHUB_USERNAME/$IMAGE_NAME/tags?page_size=100" \
-            | jq -r '.results[].name' | grep -v '^latest$' | grep -v "^$CURRENT_TAG$")
+          TAGS=$(curl -s -H "Authorization: Bearer $GHCR_PAT" "$API_URL" | jq -r '.[] | {id: .id, tags: .metadata.container.tags} | select(.tags != null) | select((.tags | index("latest") | not) and (.tags | index("${CURRENT_TAG::8}") | not)) | .id')
 
-          for tag in $TAGS; do
-            echo "Deleting tag: $tag"
-            curl -s -X DELETE -u "$DOCKERHUB_USERNAME:$DOCKERHUB_PAT" \
-              "https://hub.docker.com/v2/repositories/$DOCKERHUB_USERNAME/$IMAGE_NAME/tags/$tag/"
+          for id in $TAGS; do
+            echo "Deleting package version ID: $id"
+            curl -X DELETE -H "Authorization: Bearer $GHCR_PAT" "https://api.github.com/orgs/${OWNER}/packages/container/${REPO}/versions/$id"
           done
-          
