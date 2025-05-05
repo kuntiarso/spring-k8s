@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'commonservice/**'
 
 jobs:
   build-and-push:
