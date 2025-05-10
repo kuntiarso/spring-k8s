@@ -1,42 +1,30 @@
-replicaCount: 2
-
-image:
-  repository: ghcr.io/kuntiarso/commonservice
-  pullPolicy: IfNotPresent
-  tag: "latest"
-
-service:
-  type: ClusterIP
-  port: 10001
-
-autoscaling:
-  enabled: false
-
-ingress:
-  enabled: false
-
-resources:
-  requests:
-    cpu: "500m"
-    memory: "512Mi"
-  limits:
-    cpu: "1000m"
-    memory: "1024Mi"
-
-probes:
-  liveness:
-    path: /actuator/health/liveness
-    initialDelay: 30
-    period: 10
-    timeout: 5
-  readiness:
-    path: /actuator/health/readiness
-    initialDelay: 5
-    period: 5
-    timeout: 3
+commonservice:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/kuntiarso/commonservice
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  imagePullSecrets:
+    enabled: true
+    name: ghcr-credentials
+  service:
+    type: ClusterIP
+    port: 10001
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
 
 # sub-chart values
 mysql:
+  enabled: true
+  auth:
+    username: appuser
+    database: appk8s
   primary:
     persistence:
-      size: 8Gi
+      enabled: true
+      size: 1Gi

@@ -5,9 +5,7 @@ metadata:
   labels:
     {{- include "app.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
-  {{- end }}
+  replicas: {{ .Values.commonservice.replicaCount }}
   selector:
     matchLabels:
       {{- include "app.selectorLabels" . | nindent 6 }}
@@ -16,43 +14,35 @@ spec:
       labels:
         {{- include "app.labels" . | nindent 8 }}
     spec:
+      {{- if .Values.commonservice.imagePullSecrets.enabled }}
+      imagePullSecrets:
+        - name: {{ .Values.commonservice.imagePullSecrets.name }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.commonservice.image.repository }}:{{ .Values.commonservice.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.commonservice.image.pullPolicy }}
           ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: {{ .Values.probes.liveness.path | default "/actuator/health/liveness" }}
-              port: http
-            initialDelaySeconds: {{ .Values.probes.liveness.initialDelay | default 30 }}
-            periodSeconds: {{ .Values.probes.liveness.period | default 10 }}
-          readinessProbe:
-            httpGet:
-              path: {{ .Values.probes.readiness.path | default "/actuator/health/readiness" }}
-              port: http
-            initialDelaySeconds: {{ .Values.probes.readiness.initialDelay | default 5 }}
-            periodSeconds: {{ .Values.probes.readiness.period | default 5 }}
+            - containerPort: {{ .Values.commonservice.service.port }}
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- with .Values.commonservice.resources }}
+            requests:
+              {{- toYaml .requests | nindent 14 }}
+            limits:
+              {{- toYaml .limits | nindent 14 }}
+            {{- end }}
           env:
             - name: SPRING_CONFIG_LOCATION
               value: "file:/app/config/"
-            - name: DB_NAME
-              value: {{ .Values.mysql.auth.database }}
-            - name: DB_USER
-              value: {{ .Values.mysql.auth.username }}
-            - name: DB_PASS
-              value: {{ .Values.mysql.auth.password }}
-
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mysql
+                  key: mysql-password
           volumeMounts:
             - name: config
               mountPath: /app/config
               readOnly: true
-      
       volumes:
         - name: config
           configMap:

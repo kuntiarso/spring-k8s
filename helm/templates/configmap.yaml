@@ -14,18 +14,19 @@ data:
     spring.application.name=commonservice
     spring.banner.location=classpath:application-banner.txt
 
-    ## datasource properties
-    spring.datasource.url=jdbc:mysql://localhost:3306/${DB_NAME}?useSSL=false&allowPublicKeyRetrieval=true&serverTimeZone=UTC
-    spring.datasource.username=${DB_USER}
-    spring.datasource.password=${DB_PASS}
-    spring.datasource.hikari.schema=${DB_NAME}
+    # datasource properties
+    spring.datasource.url=jdbc:mysql://commonservice-mysql.springk8s:3306/appk8s?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    spring.datasource.username=appuser
+    spring.datasource.hikari.schema=appk8s
     
-    ## hibernate properties
+    # hibernate properties
     spring.jpa.show-sql=true
     spring.jpa.properties.hibernate.format_sql=true
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.open-in-view=false
     
-    ## flyway properties
+    # flyway properties
     spring.flyway.enabled=false
     spring.flyway.locations=classpath:db
     spring.flyway.validate-on-migrate=true
-    spring.flyway.default-schema=${DB_NAME}
+    spring.flyway.default-schema=appk8s
