@@ -26,7 +26,18 @@ data:
     spring.jpa.open-in-view=false
     
     # flyway properties
-    spring.flyway.enabled=false
+    spring.flyway.enabled=true
+    spring.flyway.user=root
     spring.flyway.locations=classpath:db
     spring.flyway.validate-on-migrate=true
     spring.flyway.default-schema=appk8s
+
+    # logging properties
+    logging.level.org.flywaydb=DEBUG
+
+    # internal properties
+    randommer.api.header.key.name=x-api-key
+    randommer.api.header.key.value=d36b34e221ea4d0e894dc9fd97a9e2a3
+    randommer.api.url=https://randommer.io
+    randommer.api.endpoint.generate-phone=/api/Phone/Generate
+    randommer.api.endpoint.validate-phone=/api/Phone/Validate

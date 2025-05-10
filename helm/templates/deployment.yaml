@@ -39,6 +39,11 @@ spec:
                 secretKeyRef:
                   name: {{ .Release.Name }}-mysql
                   key: mysql-password
+            - name: SPRING_FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mysql
+                  key: mysql-root-password
           volumeMounts:
             - name: config
               mountPath: /app/config
