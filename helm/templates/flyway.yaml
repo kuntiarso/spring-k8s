@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-flyway-job
+  namespace: {{ .Release.Namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}-flyway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:latest
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -zv {{ .Release.Name }}-mysql.{{ .Release.Namespace }}:3306; do echo \"Waiting for MySQL...\"; sleep 5; done"
+            ]
+      containers:
+        - name: flyway
+          image: flyway/flyway:latest
+          env:
+            - name: FLYWAY_URL
+              value: "jdbc:mysql://{{ .Release.Name }}-mysql.{{ .Release.Namespace }}:3306/{{ .Values.mysql.auth.database }}"
+            - name: FLYWAY_USER
+              value: root
+            - name: FLYWAY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-mysql
+                  key: mysql-root-password
+          command:
+            [
+              "/flyway/flyway",
+              "-locations=filesystem:{{ .Values.flyway.config.mountPath }}",
+              "migrate"
+            ]
+          volumeMounts:
+            - name: {{ .Values.flyway.config.name }}
+              mountPath: {{ .Values.flyway.config.mountPath }}
+      volumes:
+        - name: {{ .Values.flyway.config.name }}
+          configMap:
+            name: {{ .Release.Name }}-flyway-config

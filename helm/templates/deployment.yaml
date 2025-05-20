@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "app.fullname" . }}
+  namespace: {{ .Release.Namespace | default "default" }}
   labels:
     {{- include "app.labels" . | nindent 4 }}
 spec:
@@ -33,7 +34,7 @@ spec:
             {{- end }}
           env:
             - name: SPRING_CONFIG_LOCATION
-              value: "file:/app/config/"
+              value: "file:{{ .Values.commonservice.config.mountPath }}/"
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -45,11 +46,11 @@ spec:
                   name: {{ .Release.Name }}-mysql
                   key: mysql-root-password
           volumeMounts:
-            - name: config
-              mountPath: /app/config
+            - name: {{ .Values.commonservice.config.name }}
+              mountPath: {{ .Values.commonservice.config.mountPath }}
               readOnly: true
       volumes:
-        - name: config
+        - name: {{ .Values.commonservice.config.name }}
           configMap:
             name: {{ .Release.Name }}-config
             items:

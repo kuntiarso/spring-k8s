@@ -1,8 +1,8 @@
 commonservice:
-  replicaCount: 1
+  replicaCount: 2
   image:
     repository: ghcr.io/kuntiarso/commonservice
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
     tag: "latest"
   imagePullSecrets:
     enabled: true
@@ -10,6 +10,9 @@ commonservice:
   service:
     type: ClusterIP
     port: 10001
+  config:
+    name: config
+    mountPath: /app/config
   resources:
     requests:
       cpu: "500m"
@@ -25,6 +28,17 @@ mysql:
     username: appuser
     database: appk8s
   primary:
+    service:
+      type: NodePort
+      nodePorts:
+        mysql: 30036
     persistence:
       enabled: true
       size: 1Gi
+
+flyway:
+  image: flyway/flyway:latest
+  config:
+    name: flyway-config
+    mountPath: /app/flyway-config
+  

@@ -2,14 +2,15 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "app.fullname" . }}
+  namespace: {{ .Release.Namespace | default "default" }}
   labels:
     {{- include "app.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.commonservice.service.type }}
   ports:
-    - port: {{ .Values.commonservice.service.port }}
-      targetPort: {{ .Values.commonservice.service.port }}
+    - name: service-port
       protocol: TCP
-      name: http
+      port: {{ .Values.commonservice.service.port }}
+      targetPort: {{ .Values.commonservice.service.port }}    
   selector:
     {{- include "app.selectorLabels" . | nindent 4 }}
