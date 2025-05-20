@@ -1,25 +1,36 @@
 #!/bin/bash
 
-# =================================
-# Podman run or delete mysql for local
-# =================================
+# *********************************************************
+# Podman script for running or stopping mysql local service
+echo "Podman script for running or stopping mysql local service"
 
-set -e  # Exit immediately if any command fails
-set -o pipefail  # Capture pipe failures
 
-# Debug mode
-DEBUG=${DEBUG:-false}
-$DEBUG && set -x
+# *************************************
+# Exit immediately if any command fails
+set -e
+set -o pipefail
 
-# Load secret variables from .env
+
+# *******************
+# Logging color funcs
+debug() { echo -e "\033[1;30m[DEBUG]   $1\033[0m"; }
+info() { echo -e "\033[0;36m[INFO]    $1\033[0m"; }
+warn() { echo -e "\033[0;33m[WARN]    $1\033[0m"; }
+error() { echo -e "\033[0;31m[ERROR]   $1\033[0m"; }
+
+
+# ************************************
+# Load environment variables from .env 
 if [ -f ".env" ]; then
-  echo "Loading secret variables from .env"
+  debug "Loading environment variables from .env..."
   set -o allexport; source .env; set +o allexport
 else
-  echo "Warning: No .env file found"
+  warn "No .env file found in current directory"
 fi
 
-# Variables
+
+# ********************************
+# Constant variables for local use
 CONTAINER_NAME="springk8s-mysql-local"
 VOLUME_NAME="springk8s-mysql-local-data"
 MYSQL_ROOT_PASSWORD="$MYSQL_LOCAL_ROOT_PASSWORD"
@@ -28,29 +39,55 @@ MYSQL_USERNAME="appuser"
 MYSQL_DATABASE="appk8s"
 MYSQL_IMAGE="bitnami/mysql:8.0.37"
 
+
+# ******************************
+# Check if input action is valid
+if [ "$#" -ne 1 ]; then
+  debug "Usage: $0 {start|stop}"
+  exit 1
+fi
+
+
+# *********************************
+# Run command based on input action
+case "$1" in
+  start)
+    start_container
+    exit $?
+    ;;
+  stop)
+    stop_container
+    exit $?
+    ;;
+  *)
+    error "Invalid argument: $1"
+    warn "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac
+
+
+# *******************************
 # Function to start the container
 start_container() {
-  # Check if the container is already running
   if podman ps -a | grep -q "$CONTAINER_NAME"; then
-    echo "MySQL container '$CONTAINER_NAME' is already running or exists."
-    echo "Use $0 stop to stop it, or podman restart $CONTAINER_NAME"
+    debug "Mysql container '$CONTAINER_NAME' is already running or exists"
+    warn "Use $0 stop to stop it, or podman restart $CONTAINER_NAME"
     return 1
   fi
 
-  # Check if the volume exists
   if ! podman volume exists "$VOLUME_NAME"; then
-    echo "Creating volume '$VOLUME_NAME'..."
+    debug "Creating volume '$VOLUME_NAME'..."
     podman volume create "$VOLUME_NAME"
     if [ $? -ne 0 ]; then
-      echo "Failed to create volume '$VOLUME_NAME'."
+      error "Failed to create volume '$VOLUME_NAME'"
       return 1
     fi
   else
-      echo "Volume '$VOLUME_NAME' already exists."
+      debug "Volume '$VOLUME_NAME' already exists"
   fi
 
-  # Run the Podman container
-  echo "Starting MySQL container '$CONTAINER_NAME'..."
+  debug "Starting mysql container '$CONTAINER_NAME'..."
   podman run --name "$CONTAINER_NAME" \
     -p 3306:3306 \
     -e "MYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD" \
@@ -61,54 +98,32 @@ start_container() {
     -d "$MYSQL_IMAGE"
 
   if [ $? -eq 0 ]; then
-    echo "MySQL container '$CONTAINER_NAME' started successfully."
-    echo "You can connect to it using: host=localhost, port=3306, user=root, password=$MYSQL_ROOT_PASSWORD"
-    echo "Or using user=$MYSQL_USERNAME, password=$MYSQL_PASSWORD, database=$MYSQL_DATABASE"
+    debug "Mysql container '$CONTAINER_NAME' started successfully"
+    info "You can connect to it using: host=localhost, port=3306, user=root, password=$MYSQL_ROOT_PASSWORD"
+    info "Or using user=$MYSQL_USERNAME, password=$MYSQL_PASSWORD, database=$MYSQL_DATABASE"
   else
-    echo "Failed to start MySQL container '$CONTAINER_NAME'."
+    error "Failed to start mysql container '$CONTAINER_NAME'"
     return 1
   fi
 }
 
+
+# ******************************
 # Function to stop the container
 stop_container() {
-  # Check if the container is running
   if ! podman ps | grep -q "$CONTAINER_NAME"; then
-    echo "MySQL container '$CONTAINER_NAME' is not running."
-    echo "Use podman ps -a to see stopped containers."
-    return 0 # Exit with success, because the intended state was achieved.
+    debug "Mysql container '$CONTAINER_NAME' is not running"
+    debug "Use podman ps -a to see stopped containers"
+    return 0
   fi
 
-  # Stop the container
-  echo "Stopping MySQL container '$CONTAINER_NAME'..."
+  debug "Stopping mysql container '$CONTAINER_NAME'..."
   podman stop "$CONTAINER_NAME"
 
   if [ $? -eq 0 ]; then
-    echo "MySQL container '$CONTAINER_NAME' stopped successfully."
+    debug "Mysql container '$CONTAINER_NAME' stopped successfully"
   else
-    echo "Failed to stop MySQL container '$CONTAINER_NAME'."
+    error "Failed to stop mysql container '$CONTAINER_NAME'"
     return 1
   fi
 }
-
-# Main script logic
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 {start|stop}"
-  exit 1
-fi
-
-case "$1" in
-  start)
-    start_container
-    exit $? # Use the exit code from the function
-    ;;
-  stop)
-    stop_container
-    exit $? # Use the exit code from the function
-    ;;
-  *)
-    echo "Invalid argument: $1"
-    echo "Usage: $0 {start|stop}"
-    exit 1
-    ;;
-esac

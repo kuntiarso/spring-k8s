@@ -1,59 +1,67 @@
 #!/bin/bash
 
-# =================================
-# Scale portainer up and down in Kubernetes
-# =================================
+# ******************************************************
+# Microk8s.kubectl script for scaling up or down portainer pods
+echo "Microk8s.kubectl script for scaling up or down portainer pods"
 
-set -e  # Exit immediately if any command fails
-set -o pipefail  # Capture pipe failures
 
-# Debug mode
-DEBUG=${DEBUG:-false}
-$DEBUG && set -x
+# *************************************
+# Exit immediately if any command fails
+set -e
+set -o pipefail
 
-# Variables
-PORTAINER_NAMESPACE="portainer"
-PORTAINER_DEPLOYMENT_NAME="portainer"
 
-function scale_portainer() {
-  local action="$1"
+# *******************
+# Logging color funcs
+debug() { echo -e "\033[1;30m[DEBUG]   $1\033[0m"; }
+info() { echo -e "\033[0;36m[INFO]    $1\033[0m"; }
+warn() { echo -e "\033[0;33m[WARN]    $1\033[0m"; }
+error() { echo -e "\033[0;31m[ERROR]   $1\033[0m"; }
 
-  # Check if the action is valid
-  if [[ "$action" != "up" && "$action" != "down" ]]; then
-    echo "Invalid action: '$action'. Use 'up' or 'down'."
-    return 1
-  fi
 
-  # Scale the portainer deployment
-  if kubectl get deployment -n "$PORTAINER_NAMESPACE" "$PORTAINER_DEPLOYMENT_NAME" &>/dev/null; then
-    if [[ "$action" == "up" ]]; then
-      echo "Scaling up Portainer Deployment '$PORTAINER_DEPLOYMENT_NAME' in namespace '$PORTAINER_NAMESPACE'..."
-      kubectl scale deployment -n "$PORTAINER_NAMESPACE" "$PORTAINER_DEPLOYMENT_NAME" --replicas=1
-    elif [[ "$action" == "down" ]]; then
-      echo "Scaling down Portainer Deployment '$PORTAINER_DEPLOYMENT_NAME' in namespace '$PORTAINER_NAMESPACE'..."
-      kubectl scale deployment -n "$PORTAINER_NAMESPACE" "$PORTAINER_DEPLOYMENT_NAME" --replicas=0
-    fi
-    return 0
-  else
-    echo "Portainer Deployment '$PORTAINER_DEPLOYMENT_NAME' not found in namespace '$PORTAINER_NAMESPACE'."
-    return 1
-  fi
-}
+# ********************************
+# Constant variables for local use
+NAMESPACE="portainer"
+RELEASE_NAME="portainer"
+REPLICAS_UP=1
+REPLICAS_DOWN=0
+ACTION="$1"
 
-# Main script
-if [[ -z "$1" ]]; then
-  echo "Usage: $0 <up|down>"
+
+# ******************************
+# Check if input action is valid
+if [ -z "$ACTION" ]; then
+  debug "Usage: $0 {up|down}"
   exit 1
 fi
 
-action="$1"
 
-scale_portainer "$action"
-
-if [[ "$?" -eq 0 ]]; then
-  echo "Portainer scaled $action successfully."
+# ***************************************
+# Check if portainer deployment is exists
+if microk8s.kubectl get deployment $RELEASE_NAME -n $NAMESPACE &>/dev/null; then
+  debug "Deployment '$RELEASE_NAME' already exists in $NAMESPACE"
 else
-  echo "Failed to scale Portainer."
+  error "Deployment '$RELEASE_NAME' not found in namespace '$NAMESPACE'"
+  exit 1
 fi
 
-exit "$?"
+
+# *********************************
+# Run command based on input action
+case "$ACTION" in
+  up)
+    debug "Scaling up portainer '$RELEASE_NAME' in namespace '$NAMESPACE' to $REPLICAS_UP replicas"
+    microk8s.kubectl scale deployment "$RELEASE_NAME" --replicas="$REPLICAS_UP" -n "$NAMESPACE"
+    debug "Scale up completed"
+    ;;
+  down)
+    debug "Scaling down portainer '$RELEASE_NAME' in namespace '$NAMESPACE' to $REPLICAS_DOWN replicas"
+    microk8s.kubectl scale deployment "$RELEASE_NAME" --replicas="$REPLICAS_DOWN" -n "$NAMESPACE"
+    debug "Scale down completed"
+    ;;
+  *)
+    error "Invalid input action '$ACTION', please use 'up' or 'down' only"
+    exit 1
+    ;;
+esac
+exit 0
