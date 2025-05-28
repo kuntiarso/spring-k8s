@@ -34,7 +34,7 @@ jobs:
 
       - name: Build service jar
         working-directory: commonservice
-        run: ./mvnw clean package -DskipTests
+        run: ./mvnw clean install -DskipTests
 
       - name: Login to GitHub Container Registry
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
